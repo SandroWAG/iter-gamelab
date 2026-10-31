@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iter — Interactive Gaming Hub</title>
+    
+    <link href="https://googleapis.com" rel="stylesheet">
+     <!-- СТРОГИЙ ПОРЯДОК ИНИЦИАЛИЗАЦИИ БАЗЫ ДАННЫХ -->
+    <script>const gameDatabase = {};</script> <!-- Сначала создаем пустой реестр -->
+    <script src="database/witcher.js"></script> <!-- Затем наполняем его данными Ведьмака -->
+    <style>
+/* ИСПРАВЛЕНИЕ СКРОЛЛА ДЛЯ ЕСТЕСТВЕННОГО ПРОКРУЧИВАНИЯ СТРАНИЦЫ ХАБА */
+/* ПОЛНОЕ ИСПРАВЛЕНИЕ БАЗОВОЙ СЕТКИ И ОТМЕНА ФЛЕКС-КОНФЛИКТА (Строки 14-32) */
+html {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: auto;
+    background-color: #080d13;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    min-height: 100vh;
+    height: auto;
+    background-color: #080d13; 
+    font-family: 'Inter', sans-serif;
+    color: #cbd5e1;
+}
+
+/* Кастомные sci-fi скроллбары для всей страницы */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #04080c; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+
+        /* Верхний глобальный навбар */
+        .global-navbar {
+            height: 65px;
+            width: 100%;
+            background-color: rgba(8, 13, 19, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 60px;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .brand-logo { 
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            height: 100%;
+            /* Принудительно разрешаем логотипу вылезать за границы шапки, чтобы его не обрезало */
+            overflow: visible !important; 
+            position: relative;
+        }
+        
+        .brand-logo img {
+            height: 60px;
+            width: auto;
+            object-fit: contain;
+            transform-origin: center center;
+            /* translateY(32px) опускает логотип ниже, идеально центрируя по вертикали круга */
+            transform: scale(1.8) translateY(32px); 
+            /* margin-left: 90px сдвигает его на восток, выравнивая ровно над кавером игры */
+            margin-left: 90px; 
+            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.6));
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+        }
+
+        .brand-logo:hover img {
+            /* Сохраняем идеальное попадание в круг при ховер-эффекте */
+            transform: scale(1.88) translateY(32px);
+            filter: drop-shadow(0 0 22px rgba(255, 255, 255, 0.85));
+        }
+
+        .nav-links { display: flex; gap: 30px; list-style: none; padding: 0; margin: 0; }
+        .nav-links li a { color: #94a3b8; text-decoration: none; font-size: 13px; font-weight: 500; transition: color 0.2s; }
+        .nav-links li a:hover { color: #ffffff; }
+        /* ГЛАВНЫЙ БАННЕР (БЛОК 2 ИЗ РЕФЕРЕНСА) */
+        .game-hero-banner {
+            position: relative;
+            width: 100%;
+            height: 480px;
+            background-size: cover;
+            background-position: center 15%;
+            display: flex;
+            align-items: flex-end;
+            padding: 60px 80px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .game-hero-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to right, rgba(8,13,19,0.95) 0%, rgba(8,13,19,0.8) 40%, rgba(8,13,19,0.2) 100%),
+                        linear-gradient(to bottom, rgba(8,13,19,0) 0%, rgba(8,13,19,0.6) 60%, #080d13 100%);
+            z-index: 1;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            gap: 45px;
+            width: 100%;
+            align-items: center;
+        }
+
+        .game-cover-art {
+            width: 180px;
+            height: 260px;
+            border-radius: 8px;
+            box-shadow: 0 20px 45px rgba(0,0,0,0.9);
+            border: 1px solid rgba(255,255,255,0.08);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .game-main-details { 
+            flex-grow: 1; 
+        }
+        
+        .back-to-network {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            cursor: pointer;
+            margin-bottom: 20px;
+            display: inline-block;
+            transition: color 0.2s;
+        }
+        .back-to-network:hover { 
+            color: #ffffff; 
+        }
+
+        .game-main-details h1 { 
+            font-size: 38px; 
+            color: #ffffff; 
+            margin: 0 0 8px 0; 
+            font-weight: 700; 
+            letter-spacing: 0.5px; 
+        }
+        
+        .game-sub-meta { 
+            font-size: 13px; 
+            color: #64748b; 
+            margin-bottom: 20px; 
+        }
+
+        .game-tags { 
+            display: flex; 
+            gap: 8px; 
+            margin-bottom: 25px; 
+        }
+        
+        .tag { 
+            font-size: 10px; 
+            font-weight: 500; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            background: rgba(255,255,255,0.03); 
+            border: 1px solid rgba(255,255,255,0.08); 
+            padding: 5px 12px; 
+            border-radius: 20px; 
+            color: #94a3b8; 
+        }
+        
+        .game-description-mini { 
+            font-size: 14px; 
+            line-height: 1.7; 
+            color: #94a3b8; 
+            max-width: 800px; 
+            margin: 0; 
+        }
+
+        /* ВСЕ ПУНКТЫ ИЗ ИЗОБРАЖЕНИЯ 2 (Линейка табов) */
+        .tabs-navbar-wrapper {
+            background-color: #080d13;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0 80px;
+            flex-shrink: 0;
+        }
+
+        .sub-nav-tabs {
+            display: flex;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            gap: 35px;
+        }
+        .sub-nav-tabs li button {
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: capitalize; /* Мягкий регистр как на скрине */
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            padding: 20px 0;
+            position: relative;
+            transition: color 0.25s;
+        }
+        .sub-nav-tabs li button:hover, .sub-nav-tabs li button.active-tab { color: #ffffff; }
+        .sub-nav-tabs li button.active-tab::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; width: 100%; height: 2px;
+            background-color: #d97706; /* Золотисто-оранжевый индикатор со скриншота */
+            box-shadow: 0 0 8px rgba(217, 119, 6, 0.6);
+        }
+
+
+/* КОРРЕКТИРОВКА ВЬЮПОРТА ДЛЯ СВОБОДНОГО ОТОБРАЖЕНИЯ ДИНАМИЧЕСКОГО КОНТЕНТА */
+.hub-content-body {
+    width: 100%;
+    min-height: 400px; /* Гарантируем минимальную высоту для рендеринга */
+    height: auto;
+    display: block; /* Строго потоковый блочный тип вместо флекса */
+    position: relative;
+    background-color: #080d13;
+    clear: both;
+}
+
+.hub-section {
+    width: 100%;
+    height: auto;
+    box-sizing: border-box;
+    padding: 40px 80px 100px 80px;
+    display: none; /* Скрыто по умолчанию, управляется классом .active-section */
+    overflow: visible !important; /* Полностью убираем любые рамки скролла внутри секции */
+}
+
+.hub-section.active-section {
+    display: block !important;
+}
+
+        /* Заголовок секции контента */
+        .featured-content-title { 
+            font-size: 20px; 
+            color: #ffffff; 
+            font-weight: 700; 
+            margin: 0 0 25px 0; 
+            letter-spacing: 0.5px; 
+        }
+        
+        /* Безупречная трехколоночная сетка со скриншота */
+        .featured-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* Строго 3 равные панорамные колонки */
+            gap: 24px;
+            margin-bottom: 40px;
+            width: 100%;
+        }
+
+        /* Премиальная карточка с панорамным превью */
+        .featured-card {
+            background: #04080c;
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.25s;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .featured-card:hover { 
+            transform: translateY(-4px); 
+            border-color: rgba(255, 255, 255, 0.1); 
+        }
+
+        /* Пропорции картинки 16:9 как на концепте */
+        .featured-thumb { 
+            width: 100%; 
+            aspect-ratio: 16 / 9; 
+            background-size: cover; 
+            background-position: center; 
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+        }
+
+        /* Текстовый блок под картинкой */
+        .featured-card-info { 
+            padding: 20px 24px 24px 24px; 
+        }
+        
+        .featured-card-info h4 { 
+            margin: 0 0 6px 0; 
+            font-size: 16px; 
+            color: #ffffff; 
+            font-weight: 600; 
+            letter-spacing: 0.3px;
+        }
+        
+        .featured-card-info p { 
+            margin: 0; 
+            font-size: 13px; 
+            color: #64748b; 
+            line-height: 1.6; 
+        }
+
+        /* Мощный двухколоночный или плиточный макет для персонажей */
+        .wiki-layout { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+            gap: 30px; 
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Премиальная sci-fi карточка досье */
+        .character-card { 
+            background-color: #04080c; 
+            border: 1px solid rgba(255, 255, 255, 0.04); 
+            padding: 24px; 
+            border-radius: 8px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            transition: border-color 0.25s, transform 0.25s;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .character-card:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Контейнер аватара с фиксированными пропорциями */
+        .char-avatar-box { 
+            width: 100%; 
+            aspect-ratio: 4 / 3; /* Панорамный кинематографичный срез лица */
+            background: #020406; 
+            overflow: hidden; 
+            margin-bottom: 16px; 
+            border-radius: 4px; 
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+        
+        .char-avatar-box img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            transition: transform 0.3s ease;
+        }
+        
+        .character-card:hover .char-avatar-box img {
+            transform: scale(1.04);
+        }
+
+        /* Мета-тег роли/фракции */
+        .char-meta { 
+            font-size: 10px; 
+            text-transform: uppercase; 
+            letter-spacing: 1.5px; 
+            color: #64748b; 
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        /* Имя персонажа */
+        .character-card h3 { 
+            font-size: 20px; 
+            color: #ffffff; 
+            margin: 0 0 12px 0; 
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        /* Каноничная sci-fi цитата */
+        .char-quote { 
+            font-style: italic; 
+            color: #94a3b8; 
+            font-size: 13px; 
+            border-left: 2px solid #d97706; /* Золотисто-оранжевый акцент */
+            padding-left: 12px; 
+            line-height: 1.6; 
+            margin: 0 0 20px 0;
+            flex-grow: 1;
+        }
+        
+        /* Сетка характеристик */
+        .char-stats { 
+            border-top: 1px solid rgba(255, 255, 255, 0.06); 
+            padding-top: 14px; 
+        }
+        
+        .stat-row { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 12px; 
+            margin-bottom: 8px; 
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-lbl { color: #64748b; text-transform: uppercase; font-size: 10px; }
+        .stat-val { color: #e2e8f0; font-weight: 500; }
+        .stat-val.highlight { color: #d97706; text-shadow: 0 0 8px rgba(217, 119, 6, 0.4); }
+
+    </style>
+</head>
+<body>
+    <div id="entrance-flash" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:#ffffff; z-index:99999; pointer-events:none; opacity:1; transition:opacity 0.5s ease-out;"></div>
+
+    <!-- Верхний глобальный навбар Iter с кастомным логотипом -->
+    <nav class="global-navbar">
+        <div class="brand-logo" onclick="goBack()">
+            <img src="images/logos/iter-logo.png" alt="Iter Logo" onerror="this.style.display='none'; this.parentElement.innerText='Iter';">
+        </div>
+        <ul class="nav-links">
+            <li><a href="#">Games</a></li>
+            <li><a href="#">Maps</a></li>
+            <li><a href="#">Guides</a></li>
+            <li><a href="#">Lore</a></li>
+        </ul>
+    </nav>
+
+
+       <!-- БЛОК 2 ИЗ РЕФЕРЕНСА (БЕЗ ПРАВОГО МЕНЮ ДЕЙСТВИЙ) -->
+    <div class="game-hero-banner" id="game-hero-bg">
+        <div class="hero-content">
+            <img class="game-cover-art" id="game-cover-art" src="" alt="Cover">
+            <div class="game-main-details">
+                <span class="back-to-network" onclick="goBack()">← Back to games</span>
+                <h1 id="game-title">Загрузка...</h1>
+                <div class="game-sub-meta" id="game-meta-text"></div>
+                <div class="game-tags" id="game-tags-holder"></div>
+                <p class="game-description-mini" id="game-desc">Загрузка архивов вселенной...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ИСПРАВЛЕННАЯ ЛИНЕЙКА АКТИВНЫХ ТАБОВ ДЛЯ GAME.HTML -->
+    <div class="tabs-navbar-wrapper">
+        <ul class="sub-nav-tabs">
+        <li><button class="active-tab" id="tab-overview" onclick="switchHubTab(event, 'overview')">Overview</button></li>
+        <li><button id="tab-maps" onclick="switchHubTab(event, 'maps')">Maps</button></li>
+        <li><button id="tab-walkthroughs" onclick="switchHubTab(event, 'walkthroughs')">Walkthroughs</button></li>
+        <li><button id="tab-quests" onclick="switchHubTab(event, 'quests')">Quests</button></li>
+        <li><button id="tab-characters" onclick="switchHubTab(event, 'knowledge')">Characters</button></li>
+        <li><button id="tab-items" onclick="switchHubTab(event, 'items')">Items</button></li>
+        <li><button id="tab-lore" onclick="switchHubTab(event, 'lore')">Lore</button></li>
+        <li><button id="tab-media" onclick="switchHubTab(event, 'media')">Media</button></li>
+        </ul>
+    </div>
+
+    <div class="hub-content-body">
+        <!-- ТАБ 1: OVERVIEW -->
+        <div class="hub-section active-section" id="overview-sec">
+            <h3 class="featured-content-title">Featured content</h3>
+            <div class="featured-grid" id="featured-grid-holder"></div>
+        </div>
+
+        <!-- ТАБЫ 2, 3, 4, 6, 7: ЗАГЛУШКИ ДЛЯ ИГРОВЫХ МОДУЛЕЙ -->
+        <div class="hub-section" id="maps-sec" style="padding: 40px 80px;"><h3 style="color:#fff">Tactical Maps System</h3><p style="color:#64748b">Модуль карт временно инактивен.</p></div>
+        <div class="hub-section" id="walkthroughs-sec" style="padding: 40px 80px;"><h3 style="color:#fff">Walkthroughs Database</h3><p style="color:#64748b">Протоколы прохождения загружаются...</p></div>
+        <div class="hub-section" id="quests-sec" style="padding: 40px 80px;"><h3 style="color:#fff">Journal & Quests</h3><p style="color:#64748b">Сетка квестов пуста.</p></div>
+        <div class="hub-section" id="items-sec" style="padding: 40px 80px;"><h3 style="color:#fff">Equipment & Items</h3><p style="color:#64748b">Предметы снаряжения не найдены.</p></div>
+        <div class="hub-section" id="lore-sec" style="padding: 40px 80px;"><h3 style="color:#fff">Universe Lore Chronology</h3><p style="color:#64748b">Архив хроник пуст.</p></div>
+
+        <!-- ТАБ 5: CHARACTERS (ПЕРЕНАПРАВЛЕН НА НАШ НАРАБОТАННЫЙ WIKI-CONTENT) -->
+        <div class="hub-section" id="knowledge-sec">
+            <div class="wiki-layout" id="wiki-dynamic-content"></div>
+        </div>
+
+        <!-- ТАБ 8: MEDIA -->
+        <div class="hub-section" id="media-sec">
+            <div class="featured-grid" id="media-dynamic-content"></div>
+        </div>
+    </div>
+
+
+    <script>
+// ТОТАЛЬНОЕ ИСПРАВЛЕНИЕ ДИСПЕТЧЕРА И СИНХРОНИЗАЦИИ КЛЮЧЕЙ (Вставить в game.html)
+let currentData = null;
+
+window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    let gameName = urlParams.get('game');
+    
+    if (!gameName) {
+        window.location.href = 'index.html';
+        return;
+    }
+    
+    // Приводим к нижнему регистру и очищаем от случайных пробелов
+    const cleanKey = gameName.trim().toLowerCase();
+    
+    // Карта строгого соответствия: имя из URL -> физический файл базы
+    const fileMapping = {
+        "the witcher": "witcher.js",
+        "the witcher 2": "witcher.js",
+        "the witcher 3": "witcher.js",
+        "the witcher 4": "witcher.js",
+        "re 2 remake": "resident-evil.js",   // Исправлено расширение на .js
+        "re 3 remake": "resident-evil.js",   // Все игры серии ссылаются
+        "re 4 remake": "resident-evil.js",   // на один монолитный файл
+        "re requiem": "resident-evil.js"     // лора франшизы
+    };
+
+    const targetFile = fileMapping[cleanKey] || "witcher.js";
+
+    // Динамически инжектим тег скрипта базы данных в head
+    const scriptTag = document.createElement('script');
+    scriptTag.src = `database/${targetFile}`;
+    
+    scriptTag.onload = () => {
+        // База загружена. Ищем совпадение ключа без учета регистра и пробелов
+        const databaseKeys = Object.keys(gameDatabase);
+        const matchedKey = databaseKeys.find(k => k.trim().toLowerCase() === cleanKey);
+        
+        if (matchedKey && gameDatabase[matchedKey]) {
+            currentData = gameDatabase[matchedKey];
+            
+            // Гасим белую вспышку гиперпрыжка
+            const flash = document.getElementById('entrance-flash');
+            if (flash) setTimeout(() => { flash.style.opacity = '0'; }, 50);
+            
+            buildPremiumUI();
+        } else {
+            document.getElementById('game-title').innerText = "Архив не найден";
+            document.getElementById('game-desc').innerText = `Критический сбой: Сигнатура "${gameName}" отсутствует внутри database/${targetFile}`;
+        }
+    };
+
+    scriptTag.onerror = () => {
+        document.getElementById('game-title').innerText = "Сбой подсистемы";
+        document.getElementById('game-desc').innerText = `Не удалось физически загрузить файл базы данных: database/${targetFile}`;
+    };
+
+    document.head.appendChild(scriptTag);
+});
+// АППАРАТНАЯ СБОРКА ИНТЕРФЕЙСА ХАБА ИЗ ДИНАМИЧЕСКОЙ БАЗЫ
+function buildPremiumUI() {
+    if (!currentData) return;
+
+    // Наполнение текстовых блоков и баннеров
+    document.getElementById('game-title').innerText = currentData.title || "Unknown Title";
+    document.getElementById('game-meta-text').innerText = currentData.meta || "";
+    document.getElementById('game-desc').innerText = currentData.desc || "";
+    
+    // Безопасное наложение фонового панорамного изображения
+    if (currentData.bg) {
+        document.getElementById('game-hero-bg').style.backgroundImage = `url('${currentData.bg}')`;
+    }
+    
+    // Безопасное наложение кавера игры
+    const coverArt = document.getElementById('game-cover-art');
+    if (coverArt) {
+        coverArt.src = currentData.cover || "images/covers/default.jpg";
+        coverArt.onerror = () => { coverArt.src = "images/covers/default.jpg"; };
+    }
+
+    // Рендеринг скругленных sci-fi тегов
+    const tagsHolder = document.getElementById('game-tags-holder');
+    if (tagsHolder) {
+        tagsHolder.innerHTML = '';
+        if (currentData.tags && Array.isArray(currentData.tags)) {
+            currentData.tags.forEach(t => {
+                const span = document.createElement('span');
+                span.className = 'tag';
+                span.innerText = t.trim();
+                tagsHolder.appendChild(span);
+            });
+        }
+    }
+    
+
+    // Рендеринг стартовой вкладки Overview (Плитки 16:9)
+    const gridHolder = document.getElementById('featured-grid-holder');
+    if (gridHolder) {
+        gridHolder.innerHTML = '';
+        if (currentData.featured && Array.isArray(currentData.featured)) {
+            currentData.featured.forEach(f => {
+                const card = document.createElement('div');
+                card.className = 'featured-card';
+                card.innerHTML = `
+                    <div class="featured-thumb" style="background-image:url('${f.img}')"></div>
+                    <div class="featured-card-info">
+                        <h4>${f.title}</h4>
+                        <p>${f.desc}</p>
+                    </div>
+                `;
+                gridHolder.appendChild(card);
+            });
+        }
+    }
+
+    // Инициализация остальных контентных модулей (Медиа и Персонажи)
+    const mediaHolder = document.getElementById('media-dynamic-content');
+    if (mediaHolder) {
+        mediaHolder.innerHTML = currentData.media || '';
+    }
+    
+    renderWikiCharacters();
+}
+
+function switchHubTab(evt, sectionName) {
+    document.querySelectorAll('.sub-nav-tabs button').forEach(btn => {
+        btn.classList.remove('active-tab');
+    });
+    document.querySelectorAll('.hub-section').forEach(sec => {
+        sec.classList.remove('active-section');
+    });
+    evt.currentTarget.classList.add('active-tab');
+    const targetSec = document.getElementById(`${sectionName}-sec`);
+    if (targetSec) {
+        targetSec.classList.add('active-section');
+    }
+    if (sectionName === 'knowledge') {
+        renderWikiCharacters();
+    }
+} // Это существующая строка 606, закрывающая функцию switchHubTab
+
+// ВСТАВЛЯЕМ СЮДА — СТРОГО МЕЖДУ ФУНКЦИЕЙ И ЗАКРЫВАЮЩИМ ТЕГОМ SCRIPT
+function renderWikiCharacters() {
+    const wikiGrid = document.getElementById('wiki-dynamic-content');
+    if (!wikiGrid) return;
+
+    wikiGrid.innerHTML = '';
+
+    if (currentData && currentData.wikiCharacters && currentData.wikiCharacters.length > 0) {
+        currentData.wikiCharacters.forEach(char => {
+            let statsHtml = '';
+            if (char.stats && Array.isArray(char.stats)) {
+                statsHtml = '<div class="char-stats">';
+                char.stats.forEach(s => {
+                    const cleanKey = s.label.trim();
+                    const isHigh = cleanKey === 'HP' || cleanKey === 'Firepower' || cleanKey === 'Threat Level';
+                    statsHtml += `
+                        <div class="stat-row">
+                            <span class="stat-lbl">${cleanKey}</span>
+                            <span class="stat-val ${isHigh ? 'highlight' : ''}">${s.val}</span>
+                        </div>
+                    `;
+                });
+                statsHtml += '</div>';
+            }
+
+            const card = document.createElement('div');
+            card.className = 'character-card';
+            card.innerHTML = `
+                <div class="char-avatar-box">
+                    <img src="${char.avatar}" alt="${char.name}" onerror="this.src='images/characters/default-avatar.jpg'">
+                </div>
+                <span class="char-meta">${char.role}</span>
+                <h3>${char.name}</h3>
+                ${char.quote ? `<p class="char-quote">${char.quote}</p>` : ''}
+                ${statsHtml}
+            `;
+            wikiGrid.appendChild(card);
+        });
+    } else {
+        wikiGrid.innerHTML = '<p style="color:#64748b; padding: 20px;">Данные персонажей для этой игры временно отсутствуют.</p>';
+    }
+}
+
+function goBack() {
+    window.location.href = "index.html";
+}
+</script>
+</body>
+</html>

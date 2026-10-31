@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iter — Interactive Gaming Network</title>
+    <link href="https://googleapis.com" rel="stylesheet">
+    <style>
+        html, body {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            background-color: #000000;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            color: #f8fafc;
+        }
+        .graph-svg { 
+            position: absolute; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 10; pointer-events: none;
+            transition: filter 0.4s ease;
+        }
+        .graph-container { 
+            position: absolute; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 20; overflow: visible;
+            transition: filter 0.4s ease;
+        }
+        .graph-container.blurred .node:not(.hovered):not(.center-node):not(.sibling-active) {
+            filter: blur(5px) brightness(0.2); opacity: 0.25;
+        }
+        .graph-container.blurred .node.sibling-active:not(.hovered) {
+            filter: blur(0px) brightness(0.7); opacity: 0.65;
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
+        }
+        .node {
+            position: absolute; background-color: #000000;
+            border-radius: 50%; cursor: pointer;
+            box-sizing: border-box;
+            display: flex; align-items: center; justify-content: center;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.3s, box-shadow 0.3s, background-color 0.3s;
+        }
+        .node.game-node { width: 80px; height: 80px; border: 1px solid rgba(255, 255, 255, 0.25); background-color: #050505; z-index: 30; }
+        .node.game-node.hovered { z-index: 99 !important; width: 180px !important; height: 180px !important; border-color: rgba(255,255,255,0.8); background-color: #0c0c0c; box-shadow: 0 0 35px rgba(255, 255, 255, 0.4); }
+        .node.center-node { width: 150px !important; height: 150px !important; border: 3px solid #ffffff; box-shadow: 0 0 35px rgba(255, 255, 255, 0.45); z-index: 40 !important; top: 50% !important; left: 50% !important; background-color: #000000; }
+        .node.center-node:hover { box-shadow: 0 0 45px rgba(255, 255, 255, 0.65); transform: translate(-50%, -50%) scale(1.03) !important; }
+        .node img { width: 70%; height: 70%; object-fit: contain; pointer-events: none; transition: filter 0.3s; z-index: 2; }
+        .center-node img { width: 85% !important; height: 85% !important; }
+        .center-node .node-label { display: none !important; }
+        .node.game-node::before { content: ''; position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0.6); opacity: 0; transition: opacity 0.3s; z-index: 1; pointer-events: none; }
+        .node.game-node.hovered::before, .node.game-node.sibling-active::before { opacity: 1; border-color: rgba(255, 255, 255, 1); filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8)); animation: orbit-dashed-rotate 20s linear infinite; }
+        .node-label-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.3s; transform-origin: center center; }
+        .node.game-node.sibling-active .node-label-svg { opacity: 1; animation: orbit-text-rotate 18s linear infinite; }
+        .node.game-node.hovered .node-label-svg { opacity: 1; animation: orbit-text-rotate 8s linear infinite; }
+        .graph-svg line.pulse-active { stroke: #ffffff !important; stroke-width: 4px !important; stroke-linecap: round; filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1)) drop-shadow(0 0 3px rgba(255, 255, 255, 0.8)) !important; stroke-dasharray: 30 10; animation: power-flow 0.8s linear infinite !important; }
+        .graph-svg.blurred line:not(.pulse-active) { stroke: rgba(255, 255, 255, 0.02) !important; stroke-width: 1px !important; filter: none !important; }
+        .line-core { stroke: rgba(255, 255, 255, 0.45); stroke-width: 1.5px; }
+        .line-series { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1.25px; stroke-dasharray: 5 4; }
+        @keyframes power-flow { 0% { stroke-dashoffset: 40; } 100% { stroke-dashoffset: 0; } }
+        @keyframes orbit-dashed-rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes orbit-text-rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .n-witcher1 { top: 46% !important; left: 68% !important; }
+        .n-witcher2 { top: 62% !important; left: 74% !important; }
+        .n-witcher3 { top: 76% !important; left: 84% !important; }
+        .n-witcher4 { top: 84% !important; left: 64% !important; }
+        .n-re2       { top: 74% !important; left: 48% !important; }
+        .n-re3       { top: 82% !important; left: 34% !important; }
+        .n-re4       { top: 72% !important; left: 20% !important; }
+        .n-requiem   { top: 48% !important; left: 24% !important; }
+        .n-dawnwalker { top: 38% !important; left: 30% !important; }
+        .n-cyberpunk  { top: 24% !important; left: 22% !important; }
+        .n-bg3        { top: 14% !important; left: 40% !important; }
+        .n-pragmata   { top: 20% !important; left: 54% !important; }
+        .n-dispatch   { top: 16%; left: 66%; }
+        .n-starfield  { top: 30% !important; left: 72% !important; }
+        .n-wolf       { top: 56% !important; left: 44% !important; }
+
+            /* МОНУМЕНТАЛЬНЫЙ SCI-FI СТАРТОВЫЙ ЭКРАН */
+        #intro-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background-color: #020204;
+            /* Космическая сетка */
+            background-image: linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center center;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+            transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.7s;
+        }
+
+        /* 1. Сканирующий лазерный луч терминала */
+        #intro-overlay::before {
+            content: '';
+            position: absolute;
+            top: -100px; left: 0;
+            width: 100%; height: 6px;
+            background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.12), transparent);
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
+            pointer-events: none;
+            z-index: 9999;
+            animation: laserScan 6s linear infinite;
+        }
+
+        #intro-overlay.fade-out {
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(1.05); /* Эффект пролета сквозь экран при клике */
+        }
+
+        /* Высокотехнологичная кнопка */
+        .intro-btn {
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px 55px;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            border-radius: 1px;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.02);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            cursor: pointer;
+            animation: btnPulse 4s infinite ease-in-out;
+        }
+
+        /* 3. Премиальный ховер: Хроматическое свечение и раздвижение букв */
+        #intro-overlay:hover .intro-btn {
+            border-color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.02);
+            /* Тройное глубокое неоновое свечение */
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.2), 
+                        inset 0 0 20px rgba(255, 255, 255, 0.05);
+            letter-spacing: 7px;
+            text-shadow: 0 0 8px rgba(255,255,255,0.6);
+        }
+
+        /* Подсказка снизу */
+        .intro-hint {
+            margin-top: 28px;
+            font-size: 10px;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transition: color 0.5s;
+            font-weight: 500;
+            position: relative;
+        }
+
+        #intro-overlay:hover .intro-hint {
+            color: #cbd5e1;
+        }
+
+        /* 4. Мигающий курсор загрузки */
+        .intro-cursor {
+            color: #ffffff;
+            font-weight: 700;
+            animation: textCursor 1s steps(2, start) infinite;
+            opacity: 0.5;
+            margin-left: 2px;
+        }
+
+        /* Декоративные sci-fi углы внутри кнопки */
+        .intro-btn::before, .intro-btn::after {
+            content: '';
+            position: absolute;
+            width: 10px; height: 10px;
+            border-color: #ffffff;
+            border-style: solid;
+            opacity: 0;
+            z-index: 10;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .intro-btn::before { top: -20px; left: -20px; border-width: 1px 0 0 1px; }
+        .intro-btn::after { bottom: -20px; right: -20px; border-width: 0 1px 1px 0; }
+
+        /* Ювелирное защелкивание углов при ховере */
+        #intro-overlay:hover .intro-btn::before { opacity: 1; top: -1px; left: -1px; }
+        #intro-overlay:hover .intro-btn::after { opacity: 1; bottom: -1px; right: -1px; }
+
+        /* НОВЫЕ АНИМАЦИИ ЭФФЕКТОВ */
+        @keyframes laserScan {
+            0% { top: -100px; }
+            100% { top: 110%; }
+        }
+        @keyframes textCursor {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+        @keyframes btnPulse {
+            0%, 100% { box-shadow: 0 0 25px rgba(255, 255, 255, 0.02); border-color: rgba(255, 255, 255, 0.15); }
+            50% { box-shadow: 0 0 40px rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.4); }
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Ультимативный стартовый экран Iter Terminal -->
+    <div id="intro-overlay" onclick="unlockAudioNetwork()">
+        <div class="intro-btn">Initialize Network</div>
+        <span class="intro-hint">Click to link satellite audio cores<span class="intro-cursor">_</span></span>
+    </div>
+
+
+
+    <svg id="svg-net" class="graph-svg">
+        <line id="line-witcher1" class="line-core" x1="50%" y1="50%" x2="68%" y2="46%" /> 
+        <line id="line-witcher2" class="line-series" x1="68%" y1="46%" x2="74%" y2="62%" />
+        <line id="line-witcher3" class="line-series" x1="74%" y1="62%" x2="84%" y2="76%" />
+        <line id="line-witcher4" class="line-series" x1="84%" y1="76%" x2="64%" y2="84%" />
+        <line id="line-re2" class="line-core" x1="50%" y1="50%" x2="48%" y2="74%" /> 
+        <line id="line-re3" class="line-series" x1="48%" y1="74%" x2="34%" y2="82%" /> 
+        <line id="line-re4" class="line-series" x1="34%" y1="82%" x2="20%" y2="72%" /> 
+        <line id="line-requiem" class="line-series" x1="20%" y1="72%" x2="24%" y2="48%" /> 
+        <line id="line-dawnwalker" class="line-core" x1="50%" y1="50%" x2="30%" y2="38%" />
+        <line id="line-cyberpunk" class="line-core" x1="50%" y1="50%" x2="22%" y2="24%" />
+        <line id="line-bg3" class="line-core" x1="50%" y1="50%" x2="40%" y2="14%" />
+        <line id="line-pragmata" class="line-core" x1="50%" y1="50%" x2="54%" y2="20%" />
+        <line id="line-dispatch" class="line-core" x1="50%" y1="50%" x2="66%" y2="16%" />
+        <line id="line-starfield" class="line-core" x1="50%" y1="50%" x2="72%" y2="30%" />
+        <line id="line-wolf" class="line-core" x1="50%" y1="50%" x2="44%" y2="56%" />
+    </svg>
+    <div id="nodes-container" class="graph-container">
+        <div class="node center-node">
+            <img src="images/logos/iter-logo.png" alt="Iter Core">
+        </div>
+        <div class="node game-node n-witcher1" data-series="witcher" data-lines="line-witcher1" data-ost="audio/ost/witcher1.mp3" onclick="openGame('The Witcher')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/witcher1.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-w1" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-w1" startOffset="50%" text-anchor="middle">THE WITCHER • THE WITCHER •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-witcher2" data-series="witcher" data-lines="line-witcher1,line-witcher2" data-ost="audio/ost/witcher2.mp3" onclick="openGame('The Witcher 2')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/witcher2.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-w2" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-w2" startOffset="50%" text-anchor="middle">THE WITCHER 2 • THE WITCHER 2 •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-witcher3" data-series="witcher" data-lines="line-witcher1,line-witcher2,line-witcher3" data-ost="audio/ost/witcher3.mp3" onclick="openGame('The Witcher 3')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/witcher3.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-w3" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-w3" startOffset="50%" text-anchor="middle">THE WITCHER 3 • THE WITCHER 3 •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-witcher4" data-series="witcher" data-lines="line-witcher1,line-witcher2,line-witcher3,line-witcher4" data-ost="audio/ost/witcher4.mp3" onclick="openGame('The Witcher 4')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/witcher4.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-w4" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-w4" startOffset="50%" text-anchor="middle">THE WITCHER 4 • THE WITCHER 4 •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-re2" data-series="resident-evil" data-lines="line-re2" data-ost="audio/ost/re2.mp3" onclick="openGame('RE 2 Remake')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/re2.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-re2" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-re2" startOffset="50%" text-anchor="middle">RE 2 REMAKE • RE 2 REMAKE •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-re3" data-series="resident-evil" data-lines="line-re2,line-re3" data-ost="audio/ost/re3.mp3" onclick="openGame('RE 3 Remake')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/re3.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-re3" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-re3" startOffset="50%" text-anchor="middle">RE 3 REMAKE • RE 3 REMAKE •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-re4" data-series="resident-evil" data-lines="line-re2,line-re3,line-re4" data-ost="audio/ost/re4.mp3" onclick="openGame('RE 4 Remake')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/re4.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-re4" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-re4" startOffset="50%" text-anchor="middle">RE 4 REMAKE • RE 4 REMAKE •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-requiem" data-series="resident-evil" data-lines="line-re2,line-re3,line-re4,line-requiem" data-ost="audio/ost/requiem.mp3" onclick="openGame('RE Requiem')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/requiem.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-req" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-req" startOffset="50%" text-anchor="middle">RE REQUIEM • RE REQUIEM •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-dawnwalker" data-lines="line-dawnwalker" data-ost="audio/ost/dawnwalker.mp3" onclick="openGame('Dawnwalker')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/dawnwalker.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-dawn" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-dawn" startOffset="50%" text-anchor="middle">DAWNWALKER • DAWNWALKER •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-cyberpunk" data-lines="line-cyberpunk" data-ost="audio/ost/cyberpunk.mp3" onclick="openGame('Cyberpunk 2077')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/cyberpunk.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-cyber" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-cyber" startOffset="50%" text-anchor="middle">CYBERPUNK 2077 • CYBERPUNK 2077 •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-bg3" data-lines="line-bg3" data-ost="audio/ost/bg3.mp3" onclick="openGame('Baldur\'s Gate 3')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/bg3.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-bg3" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="4.6" font-weight="700" fill="#ffffff" letter-spacing="0.6"><textPath href="#p-bg3" startOffset="50%" text-anchor="middle">BALDUR'S GATE 3 • BALDUR'S GATE 3 •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-pragmata" data-lines="line-pragmata" data-ost="audio/ost/pragmata.mp3" onclick="openGame('Pragmata')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/pragmata.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-prag" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-prag" startOffset="50%" text-anchor="middle">PRAGMATA • PRAGMATA •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-dispatch" data-lines="line-dispatch" data-ost="audio/ost/dispatch.mp3" onclick="openGame('Dispatch')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/dispatch.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-disp" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-disp" startOffset="50%" text-anchor="middle">DISPATCH • DISPATCH •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-starfield" data-lines="line-starfield" data-ost="audio/ost/starfield.mp3" onclick="openGame('Starfield')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/starfield.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-star" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff" letter-spacing="1"><textPath href="#p-star" startOffset="50%" text-anchor="middle">STARFIELD • STARFIELD •</textPath></text></svg>
+        </div>
+        <div class="node game-node n-wolf" data-lines="line-wolf" data-ost="audio/ost/wolf.mp3" onclick="openGame('The Wolf Among Us')" onmouseenter="handleHover(this, true)" onmouseleave="handleHover(this, false)">
+            <img src="images/logos/wolf.png" alt=""><svg class="node-label-svg" viewBox="0 0 100 100"><path id="p-wolf" d="M 50,11 A 39,39 0 1,1 49.9,11 Z" fill="none" /><text font-family="'Inter', sans-serif" font-size="4.5" font-weight="700" fill="#ffffff" letter-spacing="0.6"><textPath href="#p-wolf" startOffset="50%" text-anchor="middle">THE WOLF AMONG US • THE WOLF AMONG US •</textPath></text></svg>
+        </div>
+    </div>
+    <script>
+        const nodesContainer = document.getElementById('nodes-container');
+        const svgNet = document.getElementById('svg-net');
+        const ostPlayer = new Audio();
+        ostPlayer.loop = true;
+        let fadeInterval = null;
+        const TARGET_VOLUME = 1;
+
+        function handleHover(nodeElement, isHovered) {
+            const linesAttr = nodeElement.getAttribute('data-lines') || "";
+            const seriesAttr = nodeElement.getAttribute('data-series');
+            const ostSrc = nodeElement.getAttribute('data-ost');
+            
+            if (isHovered) {
+                nodesContainer.classList.add('blurred');
+                svgNet.classList.add('blurred');
+                nodeElement.classList.add('hovered');
+                
+                if (seriesAttr && linesAttr) {
+                    const activeLines = linesAttr.split(',').map(function(l) { return l.trim(); });
+                    document.querySelectorAll('[data-series="' + seriesAttr + '"]').forEach(function(sibling) {
+                        if (sibling !== nodeElement) {
+                            const siblingLines = (sibling.getAttribute('data-lines') || "").split(',').map(function(l) { return l.trim(); });
+                            const lastLine = siblingLines[siblingLines.length - 1];
+                            if (activeLines.includes(lastLine)) {
+                                sibling.classList.add('sibling-active');
+                            }
+                        }
+                    });
+                }
+
+                if (ostSrc) {
+                    clearInterval(fadeInterval);
+                    if (ostPlayer.src !== window.location.origin + '/' + ostSrc && !ostPlayer.src.endsWith(ostSrc)) {
+                        ostPlayer.src = ostSrc;
+                        ostPlayer.volume = 0;
+                    }
+                    ostPlayer.play().then(function() {
+                        fadeInterval = setInterval(function() {
+                            if (ostPlayer.volume < TARGET_VOLUME) {
+                                ostPlayer.volume = Math.min(ostPlayer.volume + 0.05, TARGET_VOLUME);
+                            } else {
+                                clearInterval(fadeInterval);
+                            }
+                        }, 30);
+                    }).catch(function(err) {
+                        console.log("Autoplay blocked. Need interaction first.");
+                    });
+                }
+            } else {
+                nodesContainer.classList.remove('blurred');
+                svgNet.classList.remove('blurred');
+                nodeElement.classList.remove('hovered');
+                document.querySelectorAll('.sibling-active').forEach(function(sibling) {
+                    sibling.classList.remove('sibling-active');
+                });
+
+                clearInterval(fadeInterval);
+                fadeInterval = setInterval(function() {
+                    if (ostPlayer.volume > 0.02) {
+                        ostPlayer.volume = Math.max(ostPlayer.volume - 0.03, 0);
+                    } else {
+                        ostPlayer.volume = 0;
+                        ostPlayer.pause();
+                        clearInterval(fadeInterval);
+                    }
+                }, 40);
+            }
+
+            if (linesAttr) {
+                linesAttr.split(',').forEach(function(id) {
+                    const targetLine = document.getElementById(id.trim());
+                    if (targetLine) {
+                        if (isHovered) {
+                            targetLine.classList.add('pulse-active');
+                        } else {
+                            targetLine.classList.remove('pulse-active');
+                        }
+                    }
+                });
+            }
+        }
+
+        function openGame(gameName) {
+            window.location.href = "game.html?game=" + encodeURIComponent(gameName);
+        }
+                // ФУНКЦИЯ СНЯТИЯ БЛОКИРОВКИ ЗВУКА И РАСТВОРЕНИЯ ЗАСТАВКИ
+        function unlockAudioNetwork() {
+            const overlay = document.getElementById('intro-overlay');
+            if (overlay) {
+                overlay.classList.add('fade-out');
+                
+                // Делаем микро-воспроизведение пустоты, чтобы окончательно пробудить аудио-движок браузера
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                if (context.state === 'suspended') {
+                    context.resume();
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>
